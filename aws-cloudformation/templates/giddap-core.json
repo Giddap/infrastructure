@@ -1,6 +1,6 @@
 {
     "AWSTemplateFormatVersion": "2010-09-09",
-    "Description": "Giddap Core Infrastructure VPC Stack with CloudFormation Template 2014.",
+    "Description": "Giddap Core Infrastructure VPC Stack with CloudFormation Template.",
     "Parameters": {
         "EC2KeyPairName": {
             "Description": "Name of EC2 Key Pair. Must match exactly.",
