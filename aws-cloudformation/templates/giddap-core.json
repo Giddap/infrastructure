@@ -1,0 +1,354 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Giddap Core Infrastructure VPC Stack with CloudFormation Template 2014.",
+    "Parameters": {
+        "EC2KeyPairName": {
+            "Description": "Name of EC2 Key Pair. Must match exactly.",
+            "Type": "String",
+            "Default": "My Dummy EC2 Key Pair"
+        },
+        "GiddapCoreStackS3Bucket": {
+            "Description": "Name of the S3 bucket",
+            "Type": "String",
+            "Default": "My dummy S3 bucket"
+        }
+    },
+    "Resources": {
+        "GiddapCoreInfrastructureVpc": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": "10.0.0.0/16",
+                "InstanceTenancy": "default",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Giddap Core Infrastructure VPC"
+                    }
+                ]
+            }
+        },
+
+
+        "GiddapCoreInternetGateway": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Internet Gateway for Giddap Core Infrastrucutre VPC Stack"
+                    }
+                ]
+            }
+        },
+        "GiddapCoreInternetGatewayRouteTable": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "GiddapCoreInfrastructureVpc"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Internet Gateway Route Table"
+                    }
+                ]
+            }
+        },
+        "GiddapCoreInternetGatewaySubnetRoute": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "RouteTableId": {
+                    "Ref": "GiddapCoreInternetGatewayRouteTable"
+                },
+                "GatewayId": {
+                    "Ref": "GiddapCoreInternetGateway"
+                }
+            }
+        },
+        "GiddapCoreVPCGateway": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "GiddapCoreInfrastructureVpc"
+                },
+                "InternetGatewayId": {
+                    "Ref": "GiddapCoreInternetGateway"
+                }
+            }
+        },
+
+
+        "GiddapCoreDHCPOptions": {
+            "Type": "AWS::EC2::DHCPOptions",
+            "Properties": {
+                "DomainNameServers": [
+                    "AmazonProvidedDNS"
+                ]
+            }
+        },
+        "DHCPOptionsAssociation": {
+            "Type": "AWS::EC2::VPCDHCPOptionsAssociation",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "GiddapCoreInfrastructureVpc"
+                },
+                "DhcpOptionsId": {
+                    "Ref": "GiddapCoreDHCPOptions"
+                }
+            }
+        },
+
+
+        "GatewayHostSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Security Group for GatewayHost",
+                "VpcId": {
+                    "Ref": "GiddapCoreInfrastructureVpc"
+                }
+            }
+        },
+        "GatewayHostSecurityGroupIngressSsh": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+                "GroupId": {
+                    "Ref": "GatewayHostSecurityGroup"
+                },
+                "IpProtocol": "tcp",
+                "FromPort": "22",
+                "ToPort": "22",
+                "CidrIp": "0.0.0.0/0"
+            }
+        },
+        "GatewayHostSecurityGroupEgress80": {
+            "Type": "AWS::EC2::SecurityGroupEgress",
+            "Properties": {
+                "GroupId": {
+                    "Ref": "GatewayHostSecurityGroup"
+                },
+                "IpProtocol": "tcp",
+                "FromPort": "80",
+                "ToPort": "80",
+                "CidrIp": "0.0.0.0/0"
+            }
+        },
+        "GatewayHostSecurityGroupEgress443": {
+            "Type": "AWS::EC2::SecurityGroupEgress",
+            "Properties": {
+                "GroupId": {
+                    "Ref": "GatewayHostSecurityGroup"
+                },
+                "IpProtocol": "tcp",
+                "FromPort": "443",
+                "ToPort": "443",
+                "CidrIp": "0.0.0.0/0"
+            }
+        },
+        "GatewayHostSecurityGroupEgress22": {
+            "Type": "AWS::EC2::SecurityGroupEgress",
+            "Properties": {
+                "GroupId": {
+                    "Ref": "GatewayHostSecurityGroup"
+                },
+                "IpProtocol": "tcp",
+                "FromPort": "22",
+                "ToPort": "22",
+                "DestinationSecurityGroupId": {
+                    "Ref": "GatewayHostReachableSecurityGroup"
+                }
+            }
+        },
+        "GatewayHostReachableSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Allows SSH from the GatewayHost",
+                "VpcId": {
+                    "Ref": "GiddapCoreInfrastructureVpc"
+                }
+            }
+        },
+        "GatewayHostReachableSecurityGroupIngressSsh": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+                "GroupId": {
+                    "Ref": "GatewayHostReachableSecurityGroup"
+                },
+                "IpProtocol": "tcp",
+                "FromPort": "22",
+                "ToPort": "22",
+                "SourceSecurityGroupId": {
+                    "Ref": "GatewayHostSecurityGroup"
+                }
+            }
+        },
+
+
+        "GatewayHostSubnet": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": "10.0.1.0/28",
+                "VpcId": {
+                    "Ref": "GiddapCoreInfrastructureVpc"
+                }
+            }
+        },
+        "GatewayHostSubnetRoute": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "GiddapCoreInternetGatewayRouteTable"
+                },
+                "SubnetId": {
+                    "Ref": "GatewayHostSubnet"
+                }
+            }
+        },
+
+
+        "GiddapCoreEC2InstanceRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [ "ec2.amazonaws.com" ]
+                            },
+                            "Action": [ "sts:AssumeRole" ]
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "Giddap-Core-VPC-Access",
+                        "PolicyDocument": {
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": "*",
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": "iam:PassRole",
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "GiddapCoreEC2InstanceRoleInstanceProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Path": "/",
+                "Roles": [
+                    {
+                        "Ref": "GiddapCoreEC2InstanceRole"
+                    }
+                ]
+            }
+        },
+
+        "GatewayHostInstance": {
+            "Type": "AWS::EC2::Instance",
+            "Metadata": {
+                "AWS::CloudFormation::Init": {
+                    "config": {
+                        "files": {
+                            "/tmp/setup-admin-users-with-passwordless-ssh.tar.gz": {
+                                "source": {"Fn::Join" : [ "/", [
+                                    "https://s3.amazonaws.com",
+                                    {
+                                        "Ref": "GiddapCoreStackS3Bucket"
+                                    },
+                                    "core-infrastructure",
+                                    "setup-admin-users-with-passwordless-ssh.tar.gz" ] ]
+                                },
+                                "mode": "000644",
+                                "owner": "root",
+                                "group": "root",
+                                "authentication": "S3AccessCredentials"
+                            }
+                        }
+                    }
+                },
+                "AWS::CloudFormation::Authentication": {
+                    "S3AccessCredentials": {
+                        "type": "S3",
+                        "buckets": {
+                            "Ref": "GiddapCoreStackS3Bucket"
+                        },
+                        "roleName": {
+                            "Ref": "GiddapCoreEC2InstanceRole"
+                        }
+                    }
+                }
+            },
+            "Properties": {
+                "DisableApiTermination": "false",
+                "IamInstanceProfile": {
+                    "Ref": "GiddapCoreEC2InstanceRoleInstanceProfile"
+                },
+                "ImageId": "ami-16fd7026",
+                "InstanceType": "m1.small",
+                "KeyName": {
+                    "Ref": "EC2KeyPairName"
+                },
+                "PrivateIpAddress": "10.0.1.7",
+                "SourceDestCheck": "true",
+                "SubnetId": {
+                    "Ref": "GatewayHostSubnet"
+                },
+                "Tenancy": "default",
+                "Monitoring": "false",
+                "SecurityGroupIds": [
+                    {
+                        "Ref": "GatewayHostSecurityGroup"
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Giddap-Core-VPC-GatewayHost"
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": ["", [
+                            "#!/bin/bash -v\n",
+                            "yum update -y aws-cfn-bootstrap;\n",
+                            "# Run customized scripts for Gateway Host\n",
+                            "/opt/aws/bin/cfn-init -s ", {
+                                "Ref": "AWS::StackName"
+                            }, " -r GatewayHostInstance ",
+                            " --region ", {
+                                "Ref": "AWS::Region"
+                            }, " || error_exit 'Failed to run cfn-init'\n",
+                            "#!/bin/bash -v\n",
+                            "cd /tmp; tar zxvf setup-admin-users-with-passwordless-ssh.tar.gz; ./setup-admin-users;\n"
+                        ]]
+                    }
+                }
+            }
+        },
+        "GatewayHostInstanceElasticIP": {
+            "Type": "AWS::EC2::EIP",
+            "Properties": {
+                "Domain": "vpc",
+                "InstanceId": {
+                    "Ref": "GatewayHostInstance"
+                }
+            }
+        }
+    },
+    "Outputs" : {
+        "GatewayHostInstanceElasticIpAddress" : {
+            "Value" : { "Ref" : "GatewayHostInstanceElasticIP" }
+        }
+    }
+}

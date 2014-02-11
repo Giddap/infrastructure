@@ -1,0 +1,13 @@
+#!/bin/bash
+USERNAME=$1
+PUBLIC_KEY=$2
+/usr/sbin/groupadd -g 6001 giddap
+if ! grep -q giddap /etc/sudoers; then
+  echo "%giddap ALL = NOPASSWD: ALL" >>/etc/sudoers ;
+fi
+
+/usr/sbin/useradd -m -G giddap $USERNAME
+mkdir /home/$USERNAME/.ssh/
+chown $USERNAME.$USERNAME /home/$USERNAME/.ssh/
+cat $PUBLIC_KEY > /home/$USERNAME/.ssh/authorized_keys
+chown $USERNAME.$USERNAME /home/$USERNAME/.ssh/authorized_keys

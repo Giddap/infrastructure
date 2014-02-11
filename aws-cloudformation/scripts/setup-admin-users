@@ -1,0 +1,6 @@
+#!/bin/bash
+cd /tmp;
+for username in `ls user_public_key_* | cut -d '_' -f 4`; do
+    echo "username: $username";
+    ./setup-admin-user $username "user_public_key_$username";
+done
