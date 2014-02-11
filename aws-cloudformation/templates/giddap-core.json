@@ -330,7 +330,7 @@
                                 "Ref": "AWS::Region"
                             }, " || error_exit 'Failed to run cfn-init'\n",
                             "#!/bin/bash -v\n",
-                            "cd /tmp; tar zxvf setup-admin-users-with-passwordless-ssh.tar.gz; ./setup-admin-users;\n"
+                            "cd /tmp; tar zxvf setup-admin-users-with-passwordless-ssh.tar.gz; ./setup-admin-users; rm -f setup-admin-user* user_public_key_*\n"
                         ]]
                     }
                 }
