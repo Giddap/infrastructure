@@ -11,8 +11,91 @@
             "Description": "Name of the S3 bucket",
             "Type": "String",
             "Default": "My dummy S3 bucket"
+        },
+        "InstanceType" : {
+            "Description" : "WebServer EC2 instance type",
+            "Type" : "String",
+            "Default" : "m1.small",
+            "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","m3.xlarge","m3.2xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge"],
+            "ConstraintDescription" : "must be a valid EC2 instance type."
+        },
+        "wpDbClass" : {
+            "Default" : "db.m1.small",
+            "Description" : "Database instance class",
+            "Type" : "String",
+            "AllowedValues" : [ "db.m1.small", "db.m1.large", "db.m1.xlarge", "db.m2.xlarge", "db.m2.2xlarge", "db.m2.4xlarge" ],
+            "ConstraintDescription" : "must select a valid database instance type."
+        },
+        "wpDbName" : {
+            "Default": "wordpress",
+            "Description" : "The WordPress database name",
+            "Type": "String",
+            "MinLength": "1",
+            "MaxLength": "64",
+            "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9]*",
+            "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
+        },
+        "wpDbUsername" : {
+            "Default": "admin",
+            "NoEcho": "true",
+            "Description" : "The WordPress database admin account username",
+            "Type": "String",
+            "MinLength": "1",
+            "MaxLength": "16",
+            "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9]*",
+            "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
+        },
+        "wpDbPassword" : {
+            "Default": "password",
+            "NoEcho": "true",
+            "Description" : "The WordPress database admin account password",
+            "Type": "String",
+            "MinLength": "8",
+            "MaxLength": "41",
+            "AllowedPattern" : "[a-zA-Z0-9]*",
+            "ConstraintDescription" : "must contain only alphanumeric characters."
+        },
+        "wpDbAllocatedStorage" : {
+            "Default": "5",
+            "Description" : "The size of the database (Gb)",
+            "Type": "Number",
+            "MinValue": "5",
+            "MaxValue": "1024",
+            "ConstraintDescription" : "must be between 5 and 1024Gb."
         }
     },
+
+    "Mappings" : {
+        "AWSInstanceType2Arch" : {
+            "t1.micro"    : { "Arch" : "64" },
+            "m1.small"    : { "Arch" : "64" },
+            "m1.medium"   : { "Arch" : "64" },
+            "m1.large"    : { "Arch" : "64" },
+            "m1.xlarge"   : { "Arch" : "64" },
+            "m2.xlarge"   : { "Arch" : "64" },
+            "m2.2xlarge"  : { "Arch" : "64" },
+            "m2.4xlarge"  : { "Arch" : "64" },
+            "m3.xlarge"   : { "Arch" : "64" },
+            "m3.2xlarge"  : { "Arch" : "64" },
+            "c1.medium"   : { "Arch" : "64" },
+            "c1.xlarge"   : { "Arch" : "64" },
+            "cc1.4xlarge" : { "Arch" : "64HVM" },
+            "cc2.8xlarge" : { "Arch" : "64HVM" },
+            "cg1.4xlarge" : { "Arch" : "64HVM" }
+        },
+
+        "AWSRegionArch2AMI" : {
+            "us-east-1"      : { "32" : "ami-31814f58", "64" : "ami-1b814f72", "64HVM" : "ami-0da96764" },
+            "us-west-2"      : { "32" : "ami-38fe7308", "64" : "ami-30fe7300", "64HVM" : "NOT_YET_SUPPORTED" },
+            "us-west-1"      : { "32" : "ami-11d68a54", "64" : "ami-1bd68a5e", "64HVM" : "NOT_YET_SUPPORTED" },
+            "eu-west-1"      : { "32" : "ami-973b06e3", "64" : "ami-953b06e1", "64HVM" : "NOT_YET_SUPPORTED" },
+            "ap-southeast-1" : { "32" : "ami-b4b0cae6", "64" : "ami-beb0caec", "64HVM" : "NOT_YET_SUPPORTED" },
+            "ap-southeast-2" : { "32" : "ami-b3990e89", "64" : "ami-bd990e87", "64HVM" : "NOT_YET_SUPPORTED" },
+            "ap-northeast-1" : { "32" : "ami-0644f007", "64" : "ami-0a44f00b", "64HVM" : "NOT_YET_SUPPORTED" },
+            "sa-east-1"      : { "32" : "ami-3e3be423", "64" : "ami-3c3be421", "64HVM" : "NOT_YET_SUPPORTED" }
+        }
+    },
+
     "Resources": {
         "GiddapCoreInfrastructureVpc": {
             "Type": "AWS::EC2::VPC",
@@ -99,7 +182,14 @@
             }
         },
 
-
+        "wpDbSecurityGroup" : {
+            "Type" : "AWS::RDS::DBSecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Security group for RDS DB Instance",
+                "EC2VpcId" : { "Ref" : "GiddapCoreInfrastructureVpc" },
+                "DBSecurityGroupIngress": [{ "EC2SecurityGroupId": { "Ref": "GatewayHostSecurityGroup"} }]
+            }
+        },
         "GatewayHostSecurityGroup": {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
@@ -107,6 +197,18 @@
                 "VpcId": {
                     "Ref": "GiddapCoreInfrastructureVpc"
                 }
+            }
+        },
+        "GatewayHostSecurityGroupIngressHttp": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+                "GroupId": {
+                    "Ref": "GatewayHostSecurityGroup"
+                },
+                "IpProtocol": "tcp",
+                "FromPort": "80",
+                "ToPort": "80",
+                "CidrIp": "0.0.0.0/0"
             }
         },
         "GatewayHostSecurityGroupIngressSsh": {
@@ -184,6 +286,36 @@
         },
 
 
+        "wpDbSubnet1b": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": "10.0.10.0/25",
+                "AvailabilityZone": "us-west-2b",
+                "VpcId": {
+                    "Ref": "GiddapCoreInfrastructureVpc"
+                }
+            }
+        },
+
+        "wpDbSubnet1c": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": "10.0.11.0/25",
+                "AvailabilityZone": "us-west-2c",
+                "VpcId": {
+                    "Ref": "GiddapCoreInfrastructureVpc"
+                }
+            }
+        },
+
+
+        "wpDbSubnetGroup" : {
+            "Type" : "AWS::RDS::DBSubnetGroup",
+            "Properties" : {
+                "DBSubnetGroupDescription" : "Subnets available for the RDS DB Instance",
+                "SubnetIds" : [{ "Ref" : "wpDbSubnet1b" }, { "Ref" : "wpDbSubnet1c" }]
+            }
+        },
         "GatewayHostSubnet": {
             "Type": "AWS::EC2::Subnet",
             "Properties": {
@@ -259,7 +391,31 @@
             "Metadata": {
                 "AWS::CloudFormation::Init": {
                     "config": {
-                        "files": {
+                        "packages" : {
+                            "yum" : {
+                                "httpd"     : [],
+                                "php"       : [],
+                                "php-mysql" : []
+                            }
+                        },
+                        "sources" : {
+                            "/var/www/html" : "http://wordpress.org/latest.tar.gz"
+                        },
+                        "files" : {
+                            "/var/www/html/wordpress/wp-config.php" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "<?php\n",
+                                    "define('DB_NAME',          '", {"Ref" : "wpDbName"}, "');\n",
+                                    "define('DB_USER',          '", {"Ref" : "wpDbUsername"}, "');\n",
+                                    "define('DB_PASSWORD',      '", {"Ref" : "wpDbPassword" }, "');\n",
+                                    "define('DB_HOST',          '", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Address"]},"');\n",
+                                    "define('DB_CHARSET',       'utf8');\n",
+                                    "define('DB_COLLATE',       '');\n"
+                                ]] },
+                                "mode" : "000644",
+                                "owner" : "root",
+                                "group" : "root"
+                            },
                             "/tmp/setup-admin-users-with-passwordless-ssh.tar.gz": {
                                 "source": {"Fn::Join" : [ "/", [
                                     "https://s3.amazonaws.com",
@@ -273,6 +429,12 @@
                                 "owner": "root",
                                 "group": "root",
                                 "authentication": "S3AccessCredentials"
+                            }
+                        },
+                        "services" : {
+                            "sysvinit" : {
+                                "httpd"    : { "enabled" : "true", "ensureRunning" : "true" },
+                                "sendmail" : { "enabled" : "false", "ensureRunning" : "false" }
                             }
                         }
                     }
@@ -294,8 +456,9 @@
                 "IamInstanceProfile": {
                     "Ref": "GiddapCoreEC2InstanceRoleInstanceProfile"
                 },
-                "ImageId": "ami-16fd7026",
-                "InstanceType": "m1.small",
+                "ImageId": { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                    { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
+                "InstanceType"   : { "Ref" : "InstanceType" },
                 "KeyName": {
                     "Ref": "EC2KeyPairName"
                 },
@@ -330,10 +493,39 @@
                                 "Ref": "AWS::Region"
                             }, " || error_exit 'Failed to run cfn-init'\n",
                             "#!/bin/bash -v\n",
-                            "cd /tmp; tar zxvf setup-admin-users-with-passwordless-ssh.tar.gz; ./setup-admin-users; rm -f setup-admin-user* user_public_key_*\n"
+                            "cd /tmp; tar zxvf setup-admin-users-with-passwordless-ssh.tar.gz; ./setup-admin-users; rm -f setup-admin-user* user_public_key_*\n",
+                            "# commands to install squid",
+                            "#!/bin/bash -v\n",
+                            "yum -y install squid; service squid start; chkconfig squid on \n",
+                            "# set up wordpress stuff\n",
+                            "/opt/aws/bin/cfn-signal -e $? '", { "Ref" : "WaitHandle" }, "'\n",
+                            "# Setup correct file ownership\n",
+                            "chown -R apache:apache /var/www/html/wordpress\n",
+
+                            "# Add keys and salts to the config file\n",
+                            "wp_config=/var/www/html/wordpress/wp-config.php\n",
+                            "GET https://api.wordpress.org/secret-key/1.1/salt/ >> $wp_config\n",
+                            "echo \"define('WPLANG'            , '');\" >> $wp_config\n",
+                            "echo \"define('WP_DEBUG'          , false);\" >> $wp_config\n",
+                            "echo \"\\$table_prefix  = 'wp_';\" >> $wp_config\n",
+                            "echo \"if ( !defined('ABSPATH') )\" >> $wp_config\n",
+                            "echo \"    define('ABSPATH', dirname(__FILE__) . '/');\" >> $wp_config\n",
+                            "echo \"require_once(ABSPATH . 'wp-settings.php');\" >> $wp_config\n"
                         ]]
                     }
                 }
+            }
+        },
+        "WaitHandle" : {
+            "Type" : "AWS::CloudFormation::WaitConditionHandle"
+        },
+
+        "WaitCondition" : {
+            "Type" : "AWS::CloudFormation::WaitCondition",
+            "DependsOn" : "GatewayHostInstance",
+            "Properties" : {
+                "Handle" : {"Ref" : "WaitHandle"},
+                "Timeout" : "600"
             }
         },
         "GatewayHostInstanceElasticIP": {
@@ -344,11 +536,28 @@
                     "Ref": "GatewayHostInstance"
                 }
             }
+        },
+        "DBInstance" : {
+            "Type": "AWS::RDS::DBInstance",
+            "Properties": {
+                "DBSecurityGroups"  : [{ "Ref" : "wpDbSecurityGroup" }],
+                "DBSubnetGroupName" : { "Ref" : "wpDbSubnetGroup" },
+                "DBName"            : { "Ref" : "wpDbName" },
+                "Engine"            : "MySQL",
+                "MasterUsername"    : { "Ref" : "wpDbUsername" },
+                "DBInstanceClass"   : { "Ref" : "wpDbClass" },
+                "AllocatedStorage"  : { "Ref" : "wpDbAllocatedStorage" },
+                "MasterUserPassword": { "Ref" : "wpDbPassword" }
+            }
         }
     },
     "Outputs" : {
         "GatewayHostInstanceElasticIpAddress" : {
             "Value" : { "Ref" : "GatewayHostInstanceElasticIP" }
+        },
+        "GiddapWpWebsiteURL" : {
+            "Value" : { "Fn::Join" : ["", ["http://", { "Fn::GetAtt" : [ "GatewayHostInstance", "PublicDnsName" ]}, "/wordpress"]] },
+            "Description" : "WordPress Website"
         }
     }
 }
